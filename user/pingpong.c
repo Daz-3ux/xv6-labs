@@ -1,46 +1,38 @@
 #include "kernel/types.h"
-#include "kernel/stat.h"
 #include "user/user.h"
 
-int main(int argc, char **argv)
-{
-  int my_pipe[2];
-  if(pipe(my_pipe) != 0) {
-    printf("pipe error");
+#define WRITEEND 1
+#define READEND 0
+
+int main(int argc, char **argv) {
+  int pfd[2];
+  int cfd[2];
+
+  char buf[16];
+  int pid;
+
+  if ((pipe(pfd) != 0) || (pipe(cfd) != 0)) {
+    printf("Error: pipe failed");
     exit(1);
   }
 
-  int ret = fork();
-  if(ret ==  0) { // child
-    char buf[2];
-    if(read(my_pipe[0], buf, sizeof(buf)) == 0) {
-      printf("read error");
-      exit(1);
-    }
-    printf("%d: received ping\n", getpid());
-    memset(buf, 0, sizeof(buf));
-    if(write(my_pipe[1], buf, sizeof(buf)) == 0) {
-      printf("write error");
-      exit(1);
-    };
-
-
-  }else { // parnet
-    char str[2] = "a";
-    if(write(my_pipe[1], str, sizeof(str)) == 0) {
-      printf("write error");
-      exit(1);
-    };
-
-    memset(str, 0, sizeof(str));
-    if(read(my_pipe[0], str, sizeof(str)) == 0) {
-      printf("read error");
-      exit(1);
-    }
-    printf("%d: received pong\n", getpid());
-
-    int status;
-    wait(&status);
+  if ((pid = fork()) < 0) {
+    printf("Error: fork failed");
+    exit(1);
+  } else if (pid == 0) {  // child
+    close(pfd[WRITEEND]);
+    close(cfd[READEND]);
+    read(pfd[READEND], buf, sizeof(buf));
+    printf("%d: received %s\n", getpid(), buf);
+    write(cfd[WRITEEND], "pong", 4);
+    close(cfd[WRITEEND]);
+  } else {  // parents
+    close(pfd[READEND]);
+    close(cfd[WRITEEND]);
+    write(pfd[WRITEEND], "ping", 4);
+    close(pfd[WRITEEND]);
+    read(cfd[READEND], buf, sizeof(buf));
+    printf("%d: received %s\n", getpid(), buf);
   }
 
   exit(0);
