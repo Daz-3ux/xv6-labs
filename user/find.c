@@ -66,20 +66,12 @@ void find(char *dir, char *fileName) {
 
   switch (st.type) {
     case T_FILE:
-      // printf("this is a file ");
-      // printf(" %s\n", dir);
-      // printf("fmt: %s %d\n", fmtname(dir), strlen(fmtname(dir)));
-      // printf("fileName: %s %d\n", fileName, strlen(fileName));
-      int ret = strcmp(fileName, fmtname(dir));
-      // printf("ret = %d\n", ret);
-      if (ret == 0) {
+      if (strcmp(fileName, fmtname(dir)) == 0) {
         printf("%s\n", dir);
-        // printf("1");
       }
       break;
 
     case T_DIR:
-      // printf("this is a dir\n");
       if (strlen(dir) + 1 + DIRSIZ + 1 > sizeof(buf)) {
         printf("find: path too long\n");
         break;
