@@ -41,7 +41,7 @@ char *fmtname(char *path) {
   // Return blank-padded name
   if (strlen(p) >= DIRSIZ) return p;
   memmove(buf, p, strlen(p));
-  memset(buf + strlen(p), ' ', DIRSIZ - strlen(p));
+  memset(buf + strlen(p), '\0', DIRSIZ - strlen(p));
 
   return buf;
 }
@@ -66,11 +66,20 @@ void find(char *dir, char *fileName) {
 
   switch (st.type) {
     case T_FILE:
-      if (strcmp(fmtname(dir), fileName) == 0) 
+      // printf("this is a file ");
+      // printf(" %s\n", dir);
+      // printf("fmt: %s %d\n", fmtname(dir), strlen(fmtname(dir)));
+      // printf("fileName: %s %d\n", fileName, strlen(fileName));
+      int ret = strcmp(fileName, fmtname(dir));
+      // printf("ret = %d\n", ret);
+      if (ret == 0) {
         printf("%s\n", dir);
+        // printf("1");
+      }
       break;
 
     case T_DIR:
+      // printf("this is a dir\n");
       if (strlen(dir) + 1 + DIRSIZ + 1 > sizeof(buf)) {
         printf("find: path too long\n");
         break;
@@ -81,8 +90,7 @@ void find(char *dir, char *fileName) {
       p++;  // 字符串最后加上了'/', 指向'/'的后面
 
       while (read(fd, &de, sizeof(de)) == sizeof(de)) {
-        if (de.inum == 0) 
-          continue;
+        if (de.inum == 0) continue;
         memmove(p, de.name, DIRSIZ);
         p[DIRSIZ] = 0;
         if (stat(buf, &st) < 0) {
