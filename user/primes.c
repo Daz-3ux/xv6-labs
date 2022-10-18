@@ -1,62 +1,71 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-/*
-1. use pipe and fork to set up the pipeline
-2. The first process feeds the numbers 2 through 35 into the pipeline
-3. The first process can stop at 35
-*/
 #define STDERR 2
+
+#define EXIT_SUCCESS 0
 
 #define READEND 0
 #define WRITEEND 1
 
-void printPrime(int *input, int count)
-{
-  if(count == 0) {
-    return;
+void sieve(int pleft[2]) {
+  int num;
+  read(pleft[READEND], &num, sizeof(num));
+  if (num == -1) {
+    exit(EXIT_SUCCESS);
   }
-  int mypipe[2];
-  if(pipe(mypipe) < 0) {
-    fprintf(STDERR, "primes: pipe error\n");
-    exit(1);
-  }
-  int prime = *input;
-  printf("prime %d\n", prime);
+  printf("prime %d\n", num);
 
-  char buff[4];
-  if(fork() == 0) { // child
-    close(mypipe[READEND]);
-    for(int i = 0; i < count; i++) {
-      write(mypipe[WRITEEND], (char*)(input+i), 4);
-    }
-    close(mypipe[WRITEEND]);
-    exit(0);
-  }else { // parnet
-    close(mypipe[WRITEEND]);
-    count = 0;
-    while(read(mypipe[READEND], buff, 4) != 0) {
-      int temp = *(int*)buff;
-      if(temp % prime) {
-        *input = temp;
-        input++;
-        count++;
+  int pright[2];
+  int ret = pipe(pright);
+  if (ret < 0) {
+    fprintf(STDERR, "primes: pipe error\n");
+  }
+
+  ret = fork();
+  if (ret == 0) {  // child
+    close(pright[WRITEEND]);
+    close(pleft[READEND]);
+    sieve(pright);
+  } else {  // parent
+    close(pright[READEND]);
+    int buf;
+    while(read(pleft[READEND], &buf, sizeof(buf)) && buf != -1) {
+      if (buf % num) {
+        write(pright[WRITEEND], &buf, sizeof(buf));
       }
     }
-    printPrime(input - count, count);
-    close(mypipe[READEND]);
-    wait((int*)0);
+    buf = -1;
+    write(pright[WRITEEND], &buf, sizeof(buf));
+
+    wait((int *)0);
+    exit(EXIT_SUCCESS);
   }
 }
 
 int main(int argc, char **argv) {
-  int intput[34];
-  int cnt = 0;
-  for(int i = 2; i < 36; i++){
-    intput[cnt++] = i;
+  int input_pipe[2];
+  int ret = pipe(input_pipe);
+  if (ret < 0) {
+    fprintf(STDERR, "primes: pipe error\n");
   }
 
-  printPrime(intput, 34);
+  ret = fork();
+  if (ret == 0) {  // child
+    close(input_pipe[WRITEEND]);
+    sieve(input_pipe);
+    exit(EXIT_SUCCESS);
+  } else {  // parent
+    close(input_pipe[READEND]);
+    for (int i = 2; i <= 35; i++) {
+      write(input_pipe[WRITEEND], &i, sizeof(i));
+    }
+    int guard = -1;
+    write(input_pipe[WRITEEND], &guard, sizeof(guard));
 
-  exit(0);
+    close(input_pipe[WRITEEND]);
+    wait((int *)0);
+  }
+
+  exit(EXIT_SUCCESS);
 }
