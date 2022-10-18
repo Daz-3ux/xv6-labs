@@ -12,7 +12,7 @@ void sieve(int pleft[2]) {
   int num;
   read(pleft[READEND], &num, sizeof(num));
   if (num == -1) {
-    exit(EXIT_SUCCESS);
+    return;
   }
   printf("prime %d\n", num);
 
