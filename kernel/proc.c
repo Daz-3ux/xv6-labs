@@ -303,6 +303,9 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  // Copy the traceMask form parent
+  np->traceMask = p->traceMask;
+
   pid = np->pid;
 
   release(&np->lock);

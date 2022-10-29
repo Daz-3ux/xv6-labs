@@ -20,7 +20,7 @@ main(int argc, char *argv[])
   }
   
   for(i = 2; i < argc && i < MAXARG; i++){
-    nargv[i-2] = argv[i];
+    nargv[i-2] = argv[i]; // xv6的argv[0]不是文件名
   }
   exec(nargv[0], nargv);
   exit(0);
