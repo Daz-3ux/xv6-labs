@@ -139,7 +139,7 @@ char* syscalls_name[24] = {"", "fork", "exit", "wait", "pipe", "read", "kill", "
                       "open", "write", "mknod", "unlink", "link", "mkdir", "close", "trace",
                       "sysinfo"};
 
-syscall(void)
+void syscall(void)
 {
   int num;
   struct proc *p = myproc();
