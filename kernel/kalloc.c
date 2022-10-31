@@ -81,8 +81,9 @@ kalloc(void)
   return (void*)r;
 }
 
+// To collect the amount of free memory
 uint64
-collectmem(void)
+collectMem(void)
 {
   struct run *r;
   uint memCnt = 0;

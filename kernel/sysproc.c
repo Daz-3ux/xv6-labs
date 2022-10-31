@@ -109,8 +109,20 @@ sys_trace(void)
 }
 
 uint64
-sys_sysinfo(struct sysinfo *info)
+sys_sysinfo(void)
 {
+  struct sysinfo i;
+  i.freemem = collectMem();
+  i.nproc   = collectNpro();
+
+  uint64 addr;
+  // 从标准输入中得到 VA(virtual address)
+  if(argaddr(0, &addr) < 0)
+    return -1;
+  
+  struct proc *p = myproc();
+  if(copyout(p->pagetable, addr, (char*)&i, sizeof(i)) < 0)
+    return -1;
 
   return 0;
 }
