@@ -132,7 +132,7 @@ found:
     release(&p->lock);
     return 0;
   }
-  
+  p->usyscall->pid = p->pid;
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -147,8 +147,6 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-  
-  p->usyscall->pid = p->pid;
   return p;
 }
 
@@ -209,7 +207,7 @@ proc_pagetable(struct proc *p)
 
   // map the lab3.1
   if(mappages(pagetable, USYSCALL, PGSIZE,
-              (uint64)p->usyscall, PTE_R | PTE_U)) {
+              (uint64)(p->usyscall), PTE_R | PTE_U)) {
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
     uvmfree(pagetable, 0);
