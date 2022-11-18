@@ -104,6 +104,8 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+pte_t *         walk(pagetable_t, uint64, int);
+uint64          pgaccess(void *, uint64, void *);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

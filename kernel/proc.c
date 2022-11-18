@@ -672,3 +672,35 @@ procdump(void)
     printf("\n");
   }
 }
+
+uint64
+pgaccess(void *pg, uint64 pages, void *mask)
+{
+  uint32 ret = 0;
+  pte_t *pte;
+  struct proc *p = myproc();
+  pagetable_t pt = p -> pagetable;
+
+  for(int i = 0; i < pages; i++) {
+    if((uint64)pg >= MAXVA)
+      return -1;
+
+    pte = walk(pt, (uint64)pg, 0);
+    if(pte == 0)
+      return -1;
+    
+    // if pte has been accessed add bit of ret and clean
+    if(*pte & PTE_A) {
+      ret |= (1 << i);
+      *pte ^= PTE_A;
+    }
+
+    // next page
+    pg += PGSIZE;
+  }
+
+  if(copyout(pt, (uint64)mask, (char*)&ret, sizeof(ret)) < 0)
+    return -1;
+
+  return 0;
+}

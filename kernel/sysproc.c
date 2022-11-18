@@ -75,13 +75,26 @@ sys_sleep(void)
   return 0;
 }
 
+/*
+int pgaccess(void *base, int len, void *mask);
 
+buf = malloc(32 * PGSIZE);
+if (pgaccess(buf, 32, &abits) < 0)
+  err("pgaccess failed");
+*/
 #ifdef LAB_PGTBL
 int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
-  return 0;
+  uint64 base = 0;
+  int num;
+  uint64 mask;
+  if(argaddr(0, &base) < 0)   return -1;
+  if(argint(1, &num) < 0)     return -1;
+  if(argaddr(2, &mask) < 0)   return -1;
+  
+  return pgaccess((void*)base, num, (void*)mask);
 }
 #endif
 

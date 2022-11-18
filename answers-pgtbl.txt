@@ -1,2 +1,9 @@
+1.
 fork
 record the parent
+
+2.
+page0:data and text
+page1:guard page
+page2:stack
+page3 to last page:haep, trapframe, tramoline
