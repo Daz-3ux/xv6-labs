@@ -7,7 +7,7 @@ r_mhartid()
   return x;
 }
 
-// Machine Status Register, mstatus
+// Machine Status Register, mstatus  机器模式
 
 #define MSTATUS_MPP_MASK (3L << 11) // previous mode.
 #define MSTATUS_MPP_M (3L << 11)
@@ -38,7 +38,7 @@ w_mepc(uint64 x)
   asm volatile("csrw mepc, %0" : : "r" (x));
 }
 
-// Supervisor Status Register, sstatus
+// Supervisor Status Register, sstatus  权限模式
 
 #define SSTATUS_SPP (1L << 8)  // Previous mode, 1=Supervisor, 0=User
 #define SSTATUS_SPIE (1L << 5) // Supervisor Previous Interrupt Enable
@@ -93,7 +93,7 @@ w_sie(uint64 x)
   asm volatile("csrw sie, %0" : : "r" (x));
 }
 
-// Machine-mode Interrupt Enable
+// Machine-mode Interrupt Enable 
 #define MIE_MEIE (1L << 11) // external
 #define MIE_MTIE (1L << 7)  // timer
 #define MIE_MSIE (1L << 3)  // software

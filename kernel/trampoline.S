@@ -26,7 +26,12 @@ uservec:
         
 	# swap a0 and sscratch
         # so that a0 is TRAPFRAME
-        csrrw a0, sscratch, a0
+        # 将 a0 的值保存到 sscratch 寄存器,之后可尽情使用 a0 寄存器
+        # sscratch 在结束时会保存 trapframe page 的地址
+            # 在内核前一次切换回用户空间时，内核会执行set sscratch指令，将这个寄存器的内容设置为trapframe page的虚拟地址
+        # a0一开始的值是 用户保存到a0寄存器的值
+        csrrw a0, sscratch, a0  # a0现在是 trapeframe page 的地址
+                                # sscratch 是 用户保存到 a0寄存器的值
 
         # save the user registers in TRAPFRAME
         sd ra, 40(a0)
@@ -61,28 +66,28 @@ uservec:
         sd t6, 280(a0)
 
 	# save the user a0 in p->trapframe->a0
-        csrr t0, sscratch
+        csrr t0, sscratch # 将 sscratch 的值 读到 t0
         sd t0, 112(a0)
 
         # restore kernel stack pointer from p->trapframe->kernel_sp
-        ld sp, 8(a0)
+        ld sp, 8(a0) # load 指令,加载 kernel_sp 到 Stack Pointer 寄存器
 
         # make tp hold the current hartid, from p->trapframe->kernel_hartid
-        ld tp, 32(a0)
+        ld tp, 32(a0) # haitr 为当前所在 CPU 核心编号
 
         # load the address of usertrap(), p->trapframe->kernel_trap
         ld t0, 16(a0)
 
         # restore kernel page table from p->trapframe->kernel_satp
         ld t1, 0(a0)
-        csrw satp, t1
-        sfence.vma zero, zero
+        csrw satp, t1 # 将 t1 的值写道satp, 当前进程从user page table切换到kernel page table
+        sfence.vma zero, zero # 清零刷新 TLB
 
         # a0 is no longer valid, since the kernel page
         # table does not specially map p->tf.
 
         # jump to usertrap(), which does not return
-        jr t0
+        jr t0 # 跳转到 t0 所指的代码中
 
 .globl userret
 userret:
@@ -98,10 +103,10 @@ userret:
 
         # put the saved user a0 in sscratch, so we
         # can swap it with our a0 (TRAPFRAME) in the last step.
-        ld t0, 112(a0)
+        ld t0, 112(a0) # 。112是a0寄存器在trapframe中的位置
         csrw sscratch, t0
 
-        # restore all but a0 from TRAPFRAME
+        # restore all but a0 from TRAPFRAME 恢复用户寄存器所有的值
         ld ra, 40(a0)
         ld sp, 48(a0)
         ld gp, 56(a0)
@@ -134,6 +139,7 @@ userret:
         ld t6, 280(a0)
 
 	# restore user a0, and save TRAPFRAME in sscratch
+        # 交换后 SSCRATCH 仍为 trapframe 的地址, a0 则是返回值
         csrrw a0, sscratch, a0
         
         # return to user mode and user pc.
