@@ -484,3 +484,25 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_sigalarm(void)
+{
+  printf("call sigalarm\n");
+  // sigalarm(2, periodic);
+  struct proc *p = myproc();
+
+  if(argint(0, &(p->ticks)) < 0)
+    return -1;
+  if(argaddr(1, &(p->func)) < 0)
+    return -1;
+
+  return 0;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  printf("call sigreturn");
+  return 0;
+}
