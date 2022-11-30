@@ -79,13 +79,14 @@ usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2){
     yield();
-    if(++p->nTicks == p->ticks) {
+    if(++p->nTicks == p->ticks && p->inUsed == 0 && p->ticks != 0){
+        memmove(p->storePage, p->trapframe, sizeof(struct trapframe));
         // call func
         p->trapframe->epc = p->func;
         p->nTicks = 0;
+        p->inUsed = 1;
     }
   }
-    
 
   usertrapret();
 }

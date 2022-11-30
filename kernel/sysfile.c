@@ -488,8 +488,6 @@ sys_pipe(void)
 uint64
 sys_sigalarm(void)
 {
-  printf("call sigalarm\n");
-  // sigalarm(2, periodic);
   struct proc *p = myproc();
 
   if(argint(0, &(p->ticks)) < 0)
@@ -503,6 +501,9 @@ sys_sigalarm(void)
 uint64
 sys_sigreturn(void)
 {
-  printf("call sigreturn");
+  struct proc *p = myproc();
+  p->inUsed = 0;
+
+  memmove(p->trapframe, p->storePage, sizeof(struct trapframe));
   return 0;
 }

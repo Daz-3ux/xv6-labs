@@ -108,4 +108,6 @@ struct proc {
   int ticks;                  // Number of ticks
   uint64 func;                // function pointer
   int nTicks;                  // Number of passed ticks
+  struct trapframe *storePage; // store some reg
+  int inUsed;                  // judge if in second trap
 };
