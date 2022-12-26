@@ -172,6 +172,8 @@ int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 void            krefpage(void *);
 void *          kcopy_n_deref(void *);
+int             uvmcheckcowpage(uint64);
+int             uvmcowcopy(uint64);
 
 // plic.c
 void            plicinit(void);

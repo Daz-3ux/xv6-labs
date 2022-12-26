@@ -5,6 +5,8 @@
     "fstream": "c",
     "mutex": "c",
     "ostream": "c",
-    "stop_token": "c"
+    "stop_token": "c",
+    "proc.h": "c",
+    "spinlock.h": "c"
   }
 }
