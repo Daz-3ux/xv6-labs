@@ -5,6 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -291,6 +292,43 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+// 实现懒复制页的检测以及实复制
+int
+uvmcheckcowpage(uint64 va) 
+{
+  pte_t *pte;
+  struct proc *p = myproc();
+
+  return va < p->sz &&
+    ((pte = walk(p->pagetable, va, 0)) != 0 ) &&
+    (*pte & PTE_V) &&
+    (*pte & PTE_F);
+}
+
+int uvmcowcopy(uint64 va) 
+{
+  pte_t *pte;
+  struct proc *p = myproc();
+
+  if((pte = walk(p->pagetable, va, 0)) == 0) {
+    panic("uvmcowcopy: walk");
+  }
+
+  uint64 pa = PTE2PA(*pte);
+  uint64 new = (uint64)kcopy_n_deref((void*)pa);
+  if(new == 0) {
+    return -1;
+  }
+
+  uint64 flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_F;
+  uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 0);
+  if(mappages(p->pagetable, va, 1, new, flags) == -1) {
+    panic("uvmcowcopy: mappages");
+  }
+
+  return 0;
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
 // Copies both the page table and the
@@ -303,7 +341,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -311,14 +348,20 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+
+    // 清除父进程PTE_W,设置 COW 位
+    *pte = ((*pte) & ~PTE_W) | PTE_F;
+
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    //if((mem = kalloc()) == 0)
+      //goto err;
+    //memmove(mem, (char*)pa, PGSIZE);
+    // 直接懒复制,权限与父进程一致
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
       goto err;
     }
+    // 将物理页引用次数加1
+    krefpage((void*)pa);
   }
   return 0;
 
@@ -347,6 +390,9 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+
+  if(uvmcheckcowpage(dstva))
+    uvmcowcopy(dstva);
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);

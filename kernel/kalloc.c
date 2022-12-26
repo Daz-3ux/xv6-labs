@@ -23,10 +23,21 @@ struct {
   struct run *freelist;
 } kmem;
 
+// 访问物理页引用计数组
+#define PA2PGREF_ID(p) (((p)-KERNBASE)/PGSIZE)
+#define PGREF_MAX_ENTRIES PA2PGREF_ID(PHYSTOP)
+
+struct spinlock pgreflock; // 用于 pageref 数组的锁, 防止竞态条件引起内存泄漏
+int pageref[PGREF_MAX_ENTRIES];// 从 KERNBASE 开始到 PHYSTOP 之间的每个物理页的引用计数
+
+// 通过物理地址获取引用计数
+#define PA2PGREF(p) pageref[PA2PGREF_ID((uint64)p)]
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&pgreflock, "pgref");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -51,15 +62,19 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  acquire(&pgreflock);
+  if(--PA2PGREF(pa) <= 0) {
+    // 当页面引用计数小于等于0, 释放页面
+    memset(pa, 1, PGSIZE);
+    r = (struct run*)pa;
+    
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    release(&kmem.lock);
+  }
 
-  r = (struct run*)pa;
-
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  release(&pgreflock);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -76,7 +91,44 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
+    PA2PGREF(r) = 1; // 新分配页面引用计数为1
+  }
   return (void*)r;
+}
+
+// 为 pa 的引用计数加 1
+void 
+krefpage(void *pa)
+{
+  acquire(&pgreflock);
+  PA2PGREF(pa)++;
+  release(&pgreflock);
+}
+
+// 引用计数小于等于1时,不创建和复制新的内存页,直接返回页本身
+void *
+kcopy_n_deref(void *pa)
+{
+  acquire(&pgreflock);
+
+  if(PA2PGREF(pa) <= 1) {
+    release(&pgreflock);
+    return pa;
+  }
+
+  // 分配新内存页, 并从旧内存页复制数据到新页
+  uint64 newpa = (uint64)kalloc();
+  if(newpa == 0) {
+    release(&pgreflock);
+    return 0;
+  }
+  memmove((void*)newpa, (void*)pa, PGSIZE);
+
+  // 旧页引用计数减 1
+  PA2PGREF(pa)--;
+
+  release(&pgreflock);
+  return (void*)newpa;
 }
