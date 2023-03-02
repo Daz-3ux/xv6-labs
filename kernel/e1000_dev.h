@@ -96,7 +96,7 @@
 /* Transmit Descriptor status definitions [E1000 3.3.3.2] */
 #define E1000_TXD_STAT_DD    0x00000001 /* Descriptor Done */
 
-// [E1000 3.3.3]
+// [E1000 3.3.3] 传输描述符
 struct tx_desc
 {
   uint64 addr;
@@ -109,10 +109,20 @@ struct tx_desc
 };
 
 /* Receive Descriptor bit definitions [E1000 3.2.3.1] */
+/*
+DD:Descriptor Done
+Indicates whether hardware is done with the descriptor.When set along with EOP,
+the received packet is complete in main memory
+*/
 #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
 #define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
+/*
+EOP: End of Packet
+Indicates whether this is the last descriptor for an incoming packet
+*/
 
-// [E1000 3.2.3]
+// [E1000 3.2.3] 接受描述符
+// 当结合搜到网卡的包时,硬件将包数据存储到指定的缓冲区,并写入长度,包校验和,状态和错误字段
 struct rx_desc
 {
   uint64 addr;       /* Address of the descriptor's data buffer */

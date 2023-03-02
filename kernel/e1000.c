@@ -23,7 +23,7 @@ struct spinlock e1000_lock;
 
 // called by pci_init().
 // xregs is the memory address at which the
-// e1000's registers are mapped.
+// e1000's registers are mapped.             xregs 是 e1000 寄存器映射的内存地址
 void
 e1000_init(uint32 *xregs)
 {
@@ -34,12 +34,12 @@ e1000_init(uint32 *xregs)
   regs = xregs;
 
   // Reset the device
-  regs[E1000_IMS] = 0; // disable interrupts
+  regs[E1000_IMS] = 0; // disable interrupts 禁用中断
   regs[E1000_CTL] |= E1000_CTL_RST;
-  regs[E1000_IMS] = 0; // redisable interrupts
+  regs[E1000_IMS] = 0; // redisable interrupts  重新禁用中断
   __sync_synchronize();
 
-  // [E1000 14.5] Transmit initialization
+  // [E1000 14.5] Transmit initialization 发送初始化
   memset(tx_ring, 0, sizeof(tx_ring));
   for (i = 0; i < TX_RING_SIZE; i++) {
     tx_ring[i].status = E1000_TXD_STAT_DD;
@@ -51,7 +51,7 @@ e1000_init(uint32 *xregs)
   regs[E1000_TDLEN] = sizeof(tx_ring);
   regs[E1000_TDH] = regs[E1000_TDT] = 0;
   
-  // [E1000 14.4] Receive initialization
+  // [E1000 14.4] Receive initialization 接受初始化
   memset(rx_ring, 0, sizeof(rx_ring));
   for (i = 0; i < RX_RING_SIZE; i++) {
     rx_mbufs[i] = mbufalloc(0);
@@ -75,7 +75,7 @@ e1000_init(uint32 *xregs)
 
   // transmitter control bits.
   regs[E1000_TCTL] = E1000_TCTL_EN |  // enable
-    E1000_TCTL_PSP |                  // pad short packets
+    E1000_TCTL_PSP |                  // pad short packets 填充短数据包
     (0x10 << E1000_TCTL_CT_SHIFT) |   // collision stuff
     (0x40 << E1000_TCTL_COLD_SHIFT);
   regs[E1000_TIPG] = 10 | (8<<10) | (6<<20); // inter-pkt gap
@@ -101,8 +101,32 @@ e1000_transmit(struct mbuf *m)
   // the mbuf contains an ethernet frame; program it into
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after sending.
-  //
-  
+  // mbuf 包含一个以太网帧；将其编程到 TX 描述环中,以便 e1000 发送它.
+  // 存储一个指针,以便在发送后可以释放它
+
+  //printf("this is e1000 transmit\n");
+  acquire(&e1000_lock);
+  uint32 r_index = regs[E1000_TDT];
+
+  // tx_ring 尚未完成工作
+  if((tx_ring[r_index].status & E1000_TXD_STAT_DD) == 0) {
+    release(&e1000_lock);
+    return -1;
+  }
+
+  // 释放之前挂载在环上的 mbuf
+  if(tx_mbufs[r_index]) {
+    mbuffree(tx_mbufs[r_index]);
+  }
+
+  // 将内存中的 m 挂载到环上
+  tx_ring[r_index].addr = (uint64)m->head;
+  tx_ring[r_index].length = (uint16)m->len;
+  tx_ring[r_index].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
+  tx_mbufs[r_index] = m;
+
+  regs[E1000_TDT] = (regs[E1000_TDT] + 1) % TX_RING_SIZE;
+  release(&e1000_lock);
   return 0;
 }
 
@@ -114,7 +138,23 @@ e1000_recv(void)
   //
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
-  //
+  // 检查从 e1000 到达的数据包
+  // 为每个数据包创建并传送一个 mbuf(使用 net_rx())
+  //printf("this is e1000 receive\n");
+  while(1) {
+    uint32 r_index = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+    if((rx_ring[r_index].status & E1000_RXD_STAT_DD) == 0) {
+      return;
+    }
+    rx_mbufs[r_index]->len = (uint32)rx_ring[r_index].length;
+    if(rx_mbufs[r_index]) {
+      net_rx(rx_mbufs[r_index]);
+    }
+    rx_mbufs[r_index] = mbufalloc(0);
+    rx_ring[r_index].addr = (uint64)rx_mbufs[r_index]->head;
+    rx_ring[r_index].status = 0;
+    regs[E1000_RDT] = r_index;
+  }
 }
 
 void
